@@ -1,5 +1,5 @@
 """
-Training Pipeline DAG (Continuous Training)
+Training Pipeline DAG (Continuous Training) — Airflow 3.x
 Implements the full ML pipeline: Fetch → Validate → Train → Evaluate → Promote
 
 This DAG achieves MLOps Level 1 (CT) by automating the entire training loop.
@@ -39,7 +39,7 @@ with DAG(
     dag_id="training_pipeline",
     default_args=default_args,
     description="Automated ML training pipeline (CT): Fetch → Validate → Train → Evaluate → Promote",
-    schedule_interval="0 4 * * 0",  # Weekly, Sunday 4:00 AM
+    schedule="0 4 * * 0",  # Weekly, Sunday 4:00 AM
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["ml", "training", "ct", "pipeline"],

@@ -1,6 +1,6 @@
 """
-Model Promotion Module
-Promotes the challenger model to Production if evaluation passed.
+Model Promotion Module — MLflow Aliases (no deprecated stages)
+Promotes the challenger model to Production using MLflow model aliases.
 
 Usage: python -m ml.promote
 """
@@ -20,8 +20,9 @@ MODEL_NAME = os.getenv("MODEL_NAME", "customer_churn_model")
 
 def promote_model():
     """
-    Promote the latest model version to Production if it was marked as 'promoted' by evaluation.
-    Archives the previous Production model.
+    Promote the latest model version to Production using MLflow aliases.
+    - Sets alias 'champion' on the new model version
+    - Removes 'champion' alias from the old version (if any)
     """
     mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
     client = MlflowClient()
@@ -40,8 +41,6 @@ def promote_model():
     version_num = latest_version.version
 
     # Check if the evaluation step marked it for promotion
-    tags = {tag.key: tag.value for tag in latest_version.tags} if hasattr(latest_version, 'tags') else {}
-    # Also try fetching tags via API
     mv = client.get_model_version(MODEL_NAME, version_num)
     tags = mv.tags or {}
 
@@ -51,35 +50,28 @@ def promote_model():
         logger.info("Skipping promotion. Pipeline complete.")
         return
 
-    logger.info(f"Promoting model version {version_num} to Production...")
+    logger.info(f"Promoting model version {version_num}...")
 
-    # Archive current Production models
-    current_production = client.get_latest_versions(MODEL_NAME, stages=["Production"])
-    for prod_version in current_production:
-        logger.info(f"Archiving previous Production model: version {prod_version.version}")
-        client.transition_model_version_stage(
-            name=MODEL_NAME,
-            version=prod_version.version,
-            stage="Archived",
-            archive_existing_versions=False,
-        )
-
-    # Promote challenger to Production
-    client.transition_model_version_stage(
-        name=MODEL_NAME,
-        version=version_num,
-        stage="Production",
-        archive_existing_versions=False,
-    )
-
-    # Also set alias for MLflow 2.x+ clients
+    # Get current champion (if any) via alias
     try:
-        client.set_registered_model_alias(MODEL_NAME, "champion", version_num)
-    except Exception as e:
-        logger.warning(f"Could not set alias (MLflow might not support aliases): {e}")
+        current_champion = client.get_model_version_by_alias(MODEL_NAME, "champion")
+        if current_champion.version != version_num:
+            logger.info(f"Previous champion: version {current_champion.version}")
+            # Tag old champion
+            client.set_model_version_tag(MODEL_NAME, current_champion.version, "status", "archived")
+    except Exception:
+        logger.info("No existing champion found. This is the first promotion.")
 
-    logger.info(f"✅ Model version {version_num} is now Production!")
-    logger.info(f"   Model URI: models:/{MODEL_NAME}/Production")
+    # Set the 'champion' alias on the new version
+    client.set_registered_model_alias(MODEL_NAME, "champion", version_num)
+    # Also set a 'production' alias for backward compatibility
+    client.set_registered_model_alias(MODEL_NAME, "production", version_num)
+
+    # Tag the version
+    client.set_model_version_tag(MODEL_NAME, version_num, "status", "production")
+
+    logger.info(f"✅ Model version {version_num} is now the champion!")
+    logger.info(f"   Model URI: models:/{MODEL_NAME}@champion")
 
 
 if __name__ == "__main__":

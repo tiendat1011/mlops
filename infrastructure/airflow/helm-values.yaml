@@ -1,5 +1,5 @@
 # ============================================================
-# Apache Airflow Helm Chart Values
+# Apache Airflow Helm Chart Values — Airflow 3.1.7
 # Chart: apache-airflow/airflow (https://airflow.apache.org/docs/helm-chart/)
 #
 # Usage:
@@ -9,9 +9,9 @@
 # ============================================================
 
 # --- Airflow Core ---
-airflowVersion: "2.10.4"
+airflowVersion: "3.1.7"
 defaultAirflowRepository: apache/airflow
-defaultAirflowTag: "2.10.4"
+defaultAirflowTag: "3.1.7"
 
 # --- Executor ---
 # KubernetesExecutor: each task runs as its own Pod — no Celery/Redis needed
@@ -31,14 +31,17 @@ data:
     port: 5432
     db: airflow_db
 
-# --- Web Server ---
-webserver:
+# --- API Server (Airflow 3.x — replaces webserver for API) ---
+apiServer:
+  enabled: true
   replicas: 1
   service:
-    type: ClusterIP
+    type: NodePort
     ports:
-      - name: airflow-ui
+      - name: api-server
         port: 8080
+        nodePort: 30808
+  args: ["bash", "-c", "exec airflow api-server"]
   resources:
     requests:
       cpu: 250m
@@ -46,15 +49,31 @@ webserver:
     limits:
       cpu: "1"
       memory: 1Gi
-  # Default admin user for initial setup
+
+# --- Web Server (UI only — Airflow 3.x keeps it for the dashboard) ---
+webserver:
+  enabled: true
+  replicas: 1
+  args: ["bash", "-c", "exec airflow webserver"]
+  service:
+    type: ClusterIP
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# --- Default Admin User ---
+createUserJob:
   defaultUser:
-    enabled: true
     role: Admin
     username: admin
-    password: admin
     email: admin@mlops.local
     firstName: Admin
     lastName: User
+    password: admin
 
 # --- Scheduler ---
 scheduler:
@@ -74,30 +93,38 @@ dags:
     enabled: false
   gitSync:
     enabled: true
-    repo: ""           # <-- Set your Git repo URL (e.g., https://github.com/user/mlops.git)
-    branch: main
+    repo: "https://github.com/tiendat1011/mlops.git"
+    branch: master
     subPath: "pipelines/dags"
-    wait: 60           # Sync every 60 seconds
+    period: "60s"           # Sync every 60 seconds
+    depth: 1
+    rev: HEAD
+    ref: master
+
     # For private repos, use SSH key or token:
     # credentialsSecret: git-credentials
     # sshKeySecret: airflow-ssh-git-secret
 
+
 # --- Logs ---
-# Send logs to MinIO (S3-compatible)
+# Local logging first. Enable remote logging after creating the minio_default connection.
+# To enable later:
+#   1. Create Airflow Connection 'minio_default' (type: Amazon Web Services, endpoint: http://minio:9000)
+#   2. Uncomment the remote_logging config below and helm upgrade
 logs:
   persistence:
     enabled: false
 
 config:
   core:
-    remote_logging: "True"
-    remote_base_log_folder: "s3://airflow-logs/"
-    remote_log_conn_id: "minio_default"
+    remote_logging: "False"
+    # remote_base_log_folder: "s3://airflow-logs/"
+    # remote_log_conn_id: "minio_default"
   logging:
-    remote_logging: "True"
+    remote_logging: "False"
 
 # --- Environment Variables ---
-# Injected into all Airflow pods (webserver, scheduler, workers, triggerer)
+# Injected into all Airflow pods (api-server, webserver, scheduler, workers, triggerer)
 env:
   # MLflow tracking server
   - name: MLFLOW_TRACKING_URI
@@ -143,6 +170,18 @@ triggerer:
       cpu: 500m
       memory: 512Mi
 
+# --- Dag Processor (Airflow 3.x — separate dag parsing) ---
+dagProcessor:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
 # --- Disable components we don't need ---
 statsd:
   enabled: false
@@ -152,7 +191,3 @@ redis:
   enabled: false
 pgbouncer:
   enabled: false
-
-# --- Connections (created on init) ---
-# Connections are created via env vars or Airflow CLI/UI
-# Example: AIRFLOW_CONN_MINIO_DEFAULT=s3://mlops-admin:changeme-minio-secret-2024@?host=http://minio.mlops.svc.cluster.local:9000

@@ -1,5 +1,5 @@
 """
-Feast Materialization DAG
+Feast Materialization DAG — Airflow 3.x
 Runs daily to sync features from Offline Store → Online Store (Redis).
 """
 
@@ -20,7 +20,7 @@ with DAG(
     dag_id="feast_materialization",
     default_args=default_args,
     description="Daily materialization: sync offline features to Redis online store",
-    schedule_interval="0 2 * * *",  # Every day at 2:00 AM
+    schedule="0 2 * * *",  # Every day at 2:00 AM
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["feast", "feature-store", "materialization"],

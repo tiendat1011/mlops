@@ -1,6 +1,6 @@
 """
-Model Evaluation Module
-Compares the newly trained model against the current champion (Production) model.
+Model Evaluation Module — MLflow Aliases (no deprecated stages)
+Compares the newly trained model against the current champion model.
 
 Usage: python -m ml.evaluate
 """
@@ -23,27 +23,14 @@ MIN_IMPROVEMENT = float(os.getenv("MIN_IMPROVEMENT", "0.01"))
 
 
 def get_champion_metrics(client: MlflowClient) -> dict | None:
-    """Get metrics from the current Production (champion) model."""
+    """Get metrics from the current champion model using aliases."""
     try:
-        # Search for model versions with alias "champion" or stage "Production"
-        latest_versions = client.get_latest_versions(MODEL_NAME, stages=["Production"])
-        if not latest_versions:
-            # Try using aliases (MLflow 2.x+)
-            try:
-                mv = client.get_model_version_by_alias(MODEL_NAME, "champion")
-                run = client.get_run(mv.run_id)
-                return run.data.metrics
-            except Exception:
-                logger.info("No champion model found. First-time training.")
-                return None
-
-        champion_version = latest_versions[0]
-        run = client.get_run(champion_version.run_id)
-        logger.info(f"Champion model: version {champion_version.version}, run {champion_version.run_id}")
+        mv = client.get_model_version_by_alias(MODEL_NAME, "champion")
+        run = client.get_run(mv.run_id)
+        logger.info(f"Champion model: version {mv.version}, run {mv.run_id}")
         return run.data.metrics
-
     except Exception as e:
-        logger.warning(f"Could not retrieve champion metrics: {e}")
+        logger.info(f"No champion model found ({e}). First-time training.")
         return None
 
 
