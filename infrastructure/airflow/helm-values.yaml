@@ -1,0 +1,158 @@
+# ============================================================
+# Apache Airflow Helm Chart Values
+# Chart: apache-airflow/airflow (https://airflow.apache.org/docs/helm-chart/)
+#
+# Usage:
+#   helm repo add apache-airflow https://airflow.apache.org
+#   helm install airflow apache-airflow/airflow \
+#     -n mlops -f helm-values.yaml
+# ============================================================
+
+# --- Airflow Core ---
+airflowVersion: "2.10.4"
+defaultAirflowRepository: apache/airflow
+defaultAirflowTag: "2.10.4"
+
+# --- Executor ---
+# KubernetesExecutor: each task runs as its own Pod — no Celery/Redis needed
+executor: "KubernetesExecutor"
+
+# --- Database ---
+# Use existing PostgreSQL instead of the bundled one
+postgresql:
+  enabled: false
+
+data:
+  metadataConnection:
+    user: airflow_user
+    pass: changeme-airflow-db-2024
+    protocol: postgresql
+    host: postgres.mlops.svc.cluster.local
+    port: 5432
+    db: airflow_db
+
+# --- Web Server ---
+webserver:
+  replicas: 1
+  service:
+    type: ClusterIP
+    ports:
+      - name: airflow-ui
+        port: 8080
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  # Default admin user for initial setup
+  defaultUser:
+    enabled: true
+    role: Admin
+    username: admin
+    password: admin
+    email: admin@mlops.local
+    firstName: Admin
+    lastName: User
+
+# --- Scheduler ---
+scheduler:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# --- Git Sync for DAGs ---
+# Automatically sync DAGs from Git repository
+dags:
+  persistence:
+    enabled: false
+  gitSync:
+    enabled: true
+    repo: ""           # <-- Set your Git repo URL (e.g., https://github.com/user/mlops.git)
+    branch: main
+    subPath: "pipelines/dags"
+    wait: 60           # Sync every 60 seconds
+    # For private repos, use SSH key or token:
+    # credentialsSecret: git-credentials
+    # sshKeySecret: airflow-ssh-git-secret
+
+# --- Logs ---
+# Send logs to MinIO (S3-compatible)
+logs:
+  persistence:
+    enabled: false
+
+config:
+  core:
+    remote_logging: "True"
+    remote_base_log_folder: "s3://airflow-logs/"
+    remote_log_conn_id: "minio_default"
+  logging:
+    remote_logging: "True"
+
+# --- Environment Variables ---
+# Injected into all Airflow pods (webserver, scheduler, workers, triggerer)
+env:
+  # MLflow tracking server
+  - name: MLFLOW_TRACKING_URI
+    value: "http://mlflow.mlops.svc.cluster.local:5000"
+  # MinIO S3-compatible endpoint (for MLflow artifacts)
+  - name: MLFLOW_S3_ENDPOINT_URL
+    value: "http://minio.mlops.svc.cluster.local:9000"
+  - name: AWS_ACCESS_KEY_ID
+    value: "mlops-admin"
+  - name: AWS_SECRET_ACCESS_KEY
+    value: "changeme-minio-secret-2024"
+  # Feast
+  - name: FEAST_FEATURE_STORE_YAML
+    value: "/opt/feast/feature_store.yaml"
+
+# --- Extra Volumes (Feast config) ---
+extraVolumes:
+  - name: feast-config
+    configMap:
+      name: feast-config
+
+extraVolumeMounts:
+  - name: feast-config
+    mountPath: /opt/feast
+
+# --- KubernetesExecutor settings ---
+# Pod template for task pods
+kubernetesExecutor:
+  # Namespace where worker pods are created
+  namespace: mlops
+  # Delete completed pods after this many seconds
+  deleteWorkerPodsOnFailure: false
+
+# --- Triggerer ---
+triggerer:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# --- Disable components we don't need ---
+statsd:
+  enabled: false
+flower:
+  enabled: false
+redis:
+  enabled: false
+pgbouncer:
+  enabled: false
+
+# --- Connections (created on init) ---
+# Connections are created via env vars or Airflow CLI/UI
+# Example: AIRFLOW_CONN_MINIO_DEFAULT=s3://mlops-admin:changeme-minio-secret-2024@?host=http://minio.mlops.svc.cluster.local:9000

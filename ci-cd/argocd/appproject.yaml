@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: mlops
+  namespace: argocd
+spec:
+  description: MLOps Platform Project
+  sourceRepos:
+    - '*'  # Restrict to your specific repo in production
+  destinations:
+    - namespace: mlops
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'

@@ -1,0 +1,146 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "MLOps Model Drift Monitoring Dashboard",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "title": "Overall Data Drift Score",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "model_data_drift_score{model_name=\"customer_churn_model\"}",
+          "legendFormat": "Drift Score"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.1 },
+              { "color": "red", "value": 0.2 }
+            ]
+          },
+          "min": 0,
+          "max": 1,
+          "unit": "percentunit"
+        }
+      }
+    },
+    {
+      "title": "Drift Detection Status",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "model_data_drift_detected{model_name=\"customer_churn_model\"}",
+          "legendFormat": "Drift Detected"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "No Drift", "color": "green" } } },
+            { "type": "value", "options": { "1": { "text": "DRIFT DETECTED", "color": "red" } } }
+          ]
+        }
+      }
+    },
+    {
+      "title": "Prediction Count (24h)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "increase(model_predictions_total{model_name=\"customer_churn_model\"}[24h])",
+          "legendFormat": "Predictions"
+        }
+      ]
+    },
+    {
+      "title": "Prediction Latency (p95)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(model_prediction_latency_seconds_bucket{model_name=\"customer_churn_model\"}[5m]))",
+          "legendFormat": "p95 Latency"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      }
+    },
+    {
+      "title": "Per-Feature Drift Score",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "model_feature_drift_score{model_name=\"customer_churn_model\"}",
+          "legendFormat": "{{ feature_name }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.3 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Prediction Latency Distribution",
+      "type": "heatmap",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(model_prediction_latency_seconds_bucket{model_name=\"customer_churn_model\"}[5m])",
+          "legendFormat": "{{ le }}"
+        }
+      ]
+    },
+    {
+      "title": "Prediction Errors",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(model_prediction_errors_total{model_name=\"customer_churn_model\"}[5m])",
+          "legendFormat": "{{ error_type }}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["mlops", "drift", "monitoring"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "title": "MLOps - Model Drift & Serving",
+  "uid": "mlops-model-drift"
+}

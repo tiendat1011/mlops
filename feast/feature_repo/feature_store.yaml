@@ -1,0 +1,33 @@
+project: mlops_features
+provider: local
+
+# --- Registry ---
+# Stores feature definitions metadata
+registry:
+  registry_type: sql
+  path: postgresql://feast_user:changeme-feast-db-2024@postgres.mlops.svc.cluster.local:5432/feast_db
+
+# --- Offline Store ---
+# Used for historical feature retrieval (training data)
+# Option A: File-based (Parquet on MinIO via s3 path)
+offline_store:
+  type: file
+
+# Option B: If you have a PostgreSQL DWH, uncomment below:
+# offline_store:
+#   type: postgres
+#   host: your-dwh-host
+#   port: 5432
+#   database: your_dwh_db
+#   db_schema: public
+#   user: dwh_user
+#   password: dwh_password
+
+# --- Online Store ---
+# Used for low-latency feature serving (prediction time)
+online_store:
+  type: redis
+  connection_string: redis://:changeme-redis-secret-2024@redis.mlops.svc.cluster.local:6379
+
+# --- Entity key serialization ---
+entity_key_serialization_version: 2

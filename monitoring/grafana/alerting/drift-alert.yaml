@@ -1,0 +1,37 @@
+# Grafana Alert Rule: Data Drift → Trigger Retrain
+# This can be imported via Grafana provisioning or API
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: MLOps Alerts
+    folder: MLOps
+    interval: 5m
+    rules:
+      - uid: model-drift-alert
+        title: "Model Data Drift Detected"
+        condition: drift_threshold
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600   # Last 10 minutes
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: model_data_drift_detected{model_name="customer_churn_model"} == 1
+              instant: true
+              refId: A
+        for: 10m  # Must be drifting for 10 minutes
+        labels:
+          severity: warning
+          team: mlops
+        annotations:
+          summary: "Data drift detected for {{ $labels.model_name }}"
+          description: |
+            Data drift score: {{ $value }}
+            Drift has been detected for more than 10 minutes.
+            A retraining pipeline should be triggered automatically.
+            Check Grafana dashboard for per-feature drift details.
+        # Notification policy: webhook to Airflow
+        # Configure in Grafana UI: Contact Points → Webhook
+        # URL: http://airflow-webserver.mlops.svc.cluster.local:8080/api/v1/dags/training_pipeline/dagRuns

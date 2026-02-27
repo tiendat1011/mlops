@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: mlops
+  labels:
+    app.kubernetes.io/name: postgres
+data:
+  init-databases.sql: |
+    -- =============================================================
+    -- MLOps Platform: PostgreSQL Database Initialization
+    -- Creates databases and users for MLflow, Airflow, Feast
+    -- =============================================================
+
+    -- MLflow database & user
+    CREATE USER mlflow_user WITH PASSWORD 'changeme-mlflow-db-2024';
+    CREATE DATABASE mlflow_db OWNER mlflow_user;
+    GRANT ALL PRIVILEGES ON DATABASE mlflow_db TO mlflow_user;
+
+    -- Airflow database & user
+    CREATE USER airflow_user WITH PASSWORD 'changeme-airflow-db-2024';
+    CREATE DATABASE airflow_db OWNER airflow_user;
+    GRANT ALL PRIVILEGES ON DATABASE airflow_db TO airflow_user;
+
+    -- Feast database & user
+    CREATE USER feast_user WITH PASSWORD 'changeme-feast-db-2024';
+    CREATE DATABASE feast_db OWNER feast_user;
+    GRANT ALL PRIVILEGES ON DATABASE feast_db TO feast_user;

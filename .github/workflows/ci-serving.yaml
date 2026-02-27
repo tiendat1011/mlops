@@ -1,0 +1,72 @@
+# CI Pipeline: Serving API
+# Trigger: changes to serving/ directory
+
+name: CI - Serving API
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'serving/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'serving/**'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/model-serving
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          cd serving
+          pip install -r requirements.txt
+          pip install ruff
+
+      - name: Lint with ruff
+        run: |
+          cd serving
+          ruff check app/ --output-format=github
+
+      - name: Run unit tests
+        run: |
+          cd serving
+          pytest tests/ -v --tb=short
+
+  build-and-push:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./serving
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mlops
+  labels:
+    app.kubernetes.io/part-of: mlops-platform
+    argocd.argoproj.io/managed-by: argocd
