@@ -23,20 +23,20 @@ class ModelLoader:
         self.model_name = MODEL_NAME
 
     def load(self):
-        """Load the Production model from MLflow Registry."""
+        """Load the champion model from MLflow Registry using aliases."""
         logger.info(f"Connecting to MLflow at {MLFLOW_TRACKING_URI}")
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
-        model_uri = f"models:/{MODEL_NAME}/Production"
+        # Use alias-based URI (MLflow modern approach, no deprecated stages)
+        model_uri = f"models:/{MODEL_NAME}@champion"
         logger.info(f"Loading model: {model_uri}")
 
         try:
             self.model = mlflow.sklearn.load_model(model_uri)
-            # Get version info
+            # Get version info via alias
             client = mlflow.tracking.MlflowClient()
-            versions = client.get_latest_versions(MODEL_NAME, stages=["Production"])
-            if versions:
-                self.model_version = versions[0].version
+            mv = client.get_model_version_by_alias(MODEL_NAME, "champion")
+            self.model_version = mv.version
             logger.info(f"✅ Model loaded: {MODEL_NAME} v{self.model_version}")
         except Exception as e:
             logger.error(f"❌ Failed to load model: {e}")
