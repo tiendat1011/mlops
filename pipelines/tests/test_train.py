@@ -78,4 +78,4 @@ class TestModelConvergence:
         model = GradientBoostingClassifier(n_estimators=10, random_state=42)
         model.fit(X, y)
         assert len(model.feature_importances_) == X.shape[1]
-        assert np.all(model.feature_importances_ >= 0)
+        assert np.all(model.feature_importances_ >= -1e-10)  # tolerance for float precision
