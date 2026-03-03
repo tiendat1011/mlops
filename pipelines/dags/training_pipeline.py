@@ -45,6 +45,7 @@ COMMON_ENV = [
     k8s.V1EnvVar(name="FSSPEC_S3_ENDPOINT_URL", value="http://minio.mlops.svc.cluster.local:9000"),
     k8s.V1EnvVar(name="FEAST_FEATURE_STORE_YAML", value="/opt/feast"),
     k8s.V1EnvVar(name="MODEL_NAME", value=MODEL_NAME),
+    k8s.V1EnvVar(name="PIPELINE_BUCKET", value="mlops-pipeline"),
 ]
 
 

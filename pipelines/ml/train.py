@@ -59,6 +59,13 @@ TARGET_COLUMN = os.getenv("TARGET_COLUMN", "churned")
 
 def train_model():
     """Train the model and log to MLflow."""
+    # Download training data from S3 (each pipeline step runs in a separate Pod)
+    from ml.s3_storage import download_artifact
+    try:
+        download_artifact("pipeline/training_data.parquet", DATA_INPUT_PATH)
+    except Exception as e:
+        logger.warning(f"S3 download failed, trying local file: {e}")
+
     logger.info(f"Loading training data from {DATA_INPUT_PATH}...")
     df = pd.read_parquet(DATA_INPUT_PATH)
 

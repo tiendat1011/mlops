@@ -92,6 +92,13 @@ def validate_statistics(df: pd.DataFrame) -> list[str]:
 
 def validate_data() -> bool:
     """Run all data validation checks. Returns True if data passes."""
+    # Download from S3 (each pipeline step runs in a separate Pod)
+    from ml.s3_storage import download_artifact
+    try:
+        download_artifact("pipeline/training_data.parquet", DATA_INPUT_PATH)
+    except Exception as e:
+        logger.warning(f"S3 download failed, trying local file: {e}")
+
     logger.info(f"Loading data from {DATA_INPUT_PATH}...")
     df = pd.read_parquet(DATA_INPUT_PATH)
     logger.info(f"Loaded {df.shape[0]} rows, {df.shape[1]} columns")

@@ -60,6 +60,10 @@ def fetch_training_data() -> pd.DataFrame:
     training_df.to_parquet(DATA_OUTPUT_PATH, index=False)
     logger.info(f"Saved training data to {DATA_OUTPUT_PATH}")
 
+    # Upload to S3 for sharing between pipeline steps (each step is a separate Pod)
+    from ml.s3_storage import upload_artifact
+    upload_artifact(DATA_OUTPUT_PATH, "pipeline/training_data.parquet")
+
     return training_df
 
 
