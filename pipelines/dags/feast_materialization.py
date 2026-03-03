@@ -30,7 +30,7 @@ with DAG(
         task_id="feast_materialize",
         name="feast-materialize",
         namespace="mlops",
-        image="{{ var.value.feast_image | default('feast-feature-server:latest') }}",
+        image="{{ var.value.feast_image | default('tiendat1011/feast-feature-server') }}",
         cmds=["feast"],
         arguments=[
             "materialize-incremental",
