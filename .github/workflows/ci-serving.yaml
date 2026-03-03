@@ -12,7 +12,7 @@ on:
     branches: [master]
     paths:
       - 'serving/**'
-    workflow_dispatch:
+  workflow_dispatch:
     branches: [master]
     paths:
       - 'serving/**'
