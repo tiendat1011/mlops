@@ -15,7 +15,7 @@ on:
     workflow_dispatch:
     branches: [main]
     paths:
-      - 'pipelines/**'
+      - 'serving/**'
 
 env:
   REGISTRY: ghcr.io
