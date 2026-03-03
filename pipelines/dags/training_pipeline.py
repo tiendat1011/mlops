@@ -12,9 +12,9 @@ from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 
 # -- Configuration --
-ML_IMAGE = "{{ var.value.ml_pipeline_image | default('tiendat1011/mlops/ml-pipeline:latest') }}"
+ML_IMAGE = "ghcr.io/tiendat1011/mlops/ml-pipeline:latest"
 NAMESPACE = "mlops"
-MODEL_NAME = "{{ var.value.model_name | default('customer_churn_model') }}"
+MODEL_NAME = "customer_churn_model"
 
 default_args = {
     "owner": "mlops",

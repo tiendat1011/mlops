@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 
+FEAST_IMAGE = "tiendat1011/feast-feature-server:latest"
+
 default_args = {
     "owner": "mlops",
     "depends_on_past": False,
@@ -30,7 +32,7 @@ with DAG(
         task_id="feast_materialize",
         name="feast-materialize",
         namespace="mlops",
-        image="{{ var.value.feast_image | default('tiendat1011/feast-feature-server') }}",
+        image=FEAST_IMAGE,
         cmds=["feast"],
         arguments=[
             "materialize-incremental",
