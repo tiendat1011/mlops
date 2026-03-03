@@ -13,7 +13,10 @@ on:
     branches: [main]
     paths:
       - 'pipelines/**'
-
+  workflow_dispatch:
+    branches: [main]
+    paths:
+      - 'pipelines/**'
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/ml-pipeline
