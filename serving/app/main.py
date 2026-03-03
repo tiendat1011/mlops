@@ -8,7 +8,6 @@ Endpoints:
   - GET  /metrics     — Prometheus metrics
 """
 
-import os
 import logging
 import time
 from contextlib import asynccontextmanager
