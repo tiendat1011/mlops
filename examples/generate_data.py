@@ -2,6 +2,11 @@
 Synthetic Customer Churn Data Generator
 Generates realistic customer data for ML pipeline testing.
 
+Outputs:
+  - customer_churn_data.parquet: Full dataset for ML training
+  - customer_features.parquet: Customer features for Feast (feature view)
+  - transaction_features.parquet: Transaction features for Feast (feature view)
+
 Usage:
     python generate_data.py                    # Save to local file
     python generate_data.py --upload-minio     # Also upload to MinIO
@@ -43,7 +48,6 @@ def generate_customer_data(n: int = N_CUSTOMERS, seed: int = 42) -> pd.DataFrame
     avg_txn_amount_30d = np.where(txn_count_30d > 0, txn_amount_30d / txn_count_30d, 0).round(2)
 
     # Target: churned (binary)
-    # Churn probability increases with days_since_last_purchase and decreases with purchase_frequency
     churn_logit = (
         -2.0
         + 0.015 * days_since_last_purchase
@@ -56,10 +60,12 @@ def generate_customer_data(n: int = N_CUSTOMERS, seed: int = 42) -> pd.DataFrame
 
     # Timestamps
     event_timestamps = pd.date_range(end=pd.Timestamp.now(), periods=n, freq="min")
+    created_timestamps = event_timestamps - pd.Timedelta(hours=1)
 
     df = pd.DataFrame({
         "customer_id": customer_ids,
         "event_timestamp": event_timestamps,
+        "created_timestamp": created_timestamps,
         "total_purchases": total_purchases,
         "avg_order_value": avg_order_value,
         "days_since_last_purchase": days_since_last_purchase,
@@ -75,6 +81,43 @@ def generate_customer_data(n: int = N_CUSTOMERS, seed: int = 42) -> pd.DataFrame
 
     logger.info(f"Generated {len(df)} rows, churn rate: {churned.mean():.1%}")
     return df
+
+
+def split_feature_files(df: pd.DataFrame, output_dir: str = "/tmp") -> dict[str, str]:
+    """Split full dataset into separate Feast feature view Parquet files.
+
+    Returns dict of {name: filepath}.
+    """
+    common_cols = ["customer_id", "event_timestamp", "created_timestamp"]
+
+    # Customer features → matches customer_features FeatureView
+    customer_cols = common_cols + [
+        "total_purchases",
+        "avg_order_value",
+        "days_since_last_purchase",
+        "total_revenue",
+        "purchase_frequency",
+    ]
+    customer_path = os.path.join(output_dir, "customer_features.parquet")
+    df[customer_cols].to_parquet(customer_path, index=False)
+    logger.info(f"Saved customer features ({len(customer_cols)-3} features) → {customer_path}")
+
+    # Transaction features → matches transaction_features FeatureView
+    txn_cols = common_cols + [
+        "txn_count_7d",
+        "txn_amount_7d",
+        "txn_count_30d",
+        "txn_amount_30d",
+        "avg_txn_amount_30d",
+    ]
+    txn_path = os.path.join(output_dir, "transaction_features.parquet")
+    df[txn_cols].to_parquet(txn_path, index=False)
+    logger.info(f"Saved transaction features ({len(txn_cols)-3} features) → {txn_path}")
+
+    return {
+        "customer_features": customer_path,
+        "transaction_features": txn_path,
+    }
 
 
 def upload_to_minio(filepath: str, bucket: str = "feast-data", object_name: str = "customer_churn_data.parquet"):
@@ -108,16 +151,26 @@ def main():
     df.to_parquet(args.output, index=False)
     logger.info(f"Saved to {args.output}")
 
+    # Split into Feast feature view files
+    feature_files = split_feature_files(df, output_dir=os.path.dirname(args.output) or "/tmp")
+
     if args.upload_minio:
+        # Upload full dataset
         upload_to_minio(args.output)
+        # Upload feature view files
+        for name, path in feature_files.items():
+            upload_to_minio(path, object_name=f"{name}.parquet")
 
     # Print summary
     print(f"\n{'='*50}")
     print(f"Dataset Summary:")
     print(f"  Rows:        {len(df):,}")
-    print(f"  Features:    {len(df.columns) - 3}")  # exclude id, timestamp, target
+    print(f"  Features:    {len(df.columns) - 3}")  # exclude id, timestamps, target
     print(f"  Churn rate:  {df['churned'].mean():.1%}")
-    print(f"  File:        {args.output}")
+    print(f"  Files:")
+    print(f"    Full:         {args.output}")
+    for name, path in feature_files.items():
+        print(f"    {name}: {path}")
     print(f"{'='*50}")
 
 

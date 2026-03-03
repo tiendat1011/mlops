@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
+from kubernetes.client import models as k8s
 
 # -- Configuration --
 ML_IMAGE = "ghcr.io/tiendat1011/mlops/ml-pipeline:latest"
@@ -24,15 +25,25 @@ default_args = {
     "retry_delay": timedelta(minutes=10),
 }
 
-# Common env vars injected into all pipeline steps
-COMMON_ENV = {
-    "MLFLOW_TRACKING_URI": "http://mlflow.mlops.svc.cluster.local:5000",
-    "MLFLOW_S3_ENDPOINT_URL": "http://minio.mlops.svc.cluster.local:9000",
-    "AWS_ACCESS_KEY_ID": "mlops-admin",
-    "AWS_SECRET_ACCESS_KEY": "changeme-minio-secret-2024",
-    "FEAST_FEATURE_STORE_YAML": "/opt/feast/feature_store.yaml",
-    "MODEL_NAME": MODEL_NAME,
-}
+# Common env vars injected into all pipeline steps — secrets from K8s
+COMMON_ENV = [
+    k8s.V1EnvVar(
+        name="AWS_ACCESS_KEY_ID",
+        value_from=k8s.V1EnvVarSource(
+            secret_key_ref=k8s.V1SecretKeySelector(name="minio-secret", key="MINIO_ROOT_USER")
+        ),
+    ),
+    k8s.V1EnvVar(
+        name="AWS_SECRET_ACCESS_KEY",
+        value_from=k8s.V1EnvVarSource(
+            secret_key_ref=k8s.V1SecretKeySelector(name="minio-secret", key="MINIO_ROOT_PASSWORD")
+        ),
+    ),
+    k8s.V1EnvVar(name="MLFLOW_TRACKING_URI", value="http://mlflow.mlops.svc.cluster.local:5000"),
+    k8s.V1EnvVar(name="MLFLOW_S3_ENDPOINT_URL", value="http://minio.mlops.svc.cluster.local:9000"),
+    k8s.V1EnvVar(name="FEAST_FEATURE_STORE_YAML", value="/opt/feast/feature_store.yaml"),
+    k8s.V1EnvVar(name="MODEL_NAME", value=MODEL_NAME),
+]
 
 
 with DAG(
@@ -89,12 +100,6 @@ with DAG(
         get_logs=True,
         is_delete_operator_pod=True,
         in_cluster=True,
-        # Uncomment for GPU nodes:
-        # node_selector={"gpu": "true"},
-        # container_resources={
-        #     "requests": {"cpu": "2", "memory": "4Gi", "nvidia.com/gpu": "1"},
-        #     "limits": {"cpu": "4", "memory": "8Gi", "nvidia.com/gpu": "1"},
-        # },
     )
 
     # ── Step 4: Evaluate & Compare with Champion ────────────

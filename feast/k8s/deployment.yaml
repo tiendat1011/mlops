@@ -21,16 +21,34 @@ spec:
       initContainers:
         # Apply feature definitions to the registry before serving
         - name: feast-apply
-          image: tiendat1011/feast-feature-server:latest 
+          image: tiendat1011/feast-feature-server:latest
           command: ["feast", "apply"]
           workingDir: /app/feature_repo
+          envFrom:
+            - secretRef:
+                name: minio-secret
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: MINIO_ROOT_USER
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: MINIO_ROOT_PASSWORD
+            - name: AWS_ENDPOINT_URL
+              value: "http://minio.mlops.svc.cluster.local:9000"
+            - name: FSSPEC_S3_ENDPOINT_URL
+              value: "http://minio.mlops.svc.cluster.local:9000"
           volumeMounts:
             - name: feast-config
               mountPath: /app/feature_repo/feature_store.yaml
               subPath: feature_store.yaml
       containers:
         - name: feature-server
-          image: tiendat1011/feast-feature-server:latest  # Updated by CI/CD
+          image: tiendat1011/feast-feature-server:latest
           command: ["feast", "serve"]
           args:
             - "--host=0.0.0.0"
@@ -40,6 +58,21 @@ spec:
             - name: http
               containerPort: 6566
               protocol: TCP
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: MINIO_ROOT_USER
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: MINIO_ROOT_PASSWORD
+            - name: AWS_ENDPOINT_URL
+              value: "http://minio.mlops.svc.cluster.local:9000"
+            - name: FSSPEC_S3_ENDPOINT_URL
+              value: "http://minio.mlops.svc.cluster.local:9000"
           volumeMounts:
             - name: feast-config
               mountPath: /app/feature_repo/feature_store.yaml

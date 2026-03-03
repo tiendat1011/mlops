@@ -34,7 +34,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from sklearn.preprocessing import StandardScaler
 from mlflow.models.signature import infer_signature
 
-from generate_data import generate_customer_data, upload_to_minio
+from generate_data import generate_customer_data, upload_to_minio, split_feature_files
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -75,10 +75,16 @@ def step1_generate_data() -> pd.DataFrame:
     df.to_parquet(output_path, index=False)
     logger.info(f"Saved {len(df)} rows to {output_path}")
 
+    # Split into Feast feature view files
+    feature_files = split_feature_files(df, output_dir="/tmp")
+
     # Upload to MinIO
     try:
         os.environ["MINIO_ENDPOINT"] = MINIO_ENDPOINT
         upload_to_minio(output_path, bucket="feast-data", object_name="customer_churn_data.parquet")
+        # Upload Feast feature files
+        for name, path in feature_files.items():
+            upload_to_minio(path, bucket="feast-data", object_name=f"{name}.parquet")
     except Exception as e:
         logger.warning(f"MinIO upload failed (OK for local testing): {e}")
 

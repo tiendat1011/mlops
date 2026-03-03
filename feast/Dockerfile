@@ -1,8 +1,15 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir feast[redis,postgres,aws]==0.40.1
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Install Feast with all backends + s3fs for MinIO access
+RUN uv pip install --system --no-cache \
+    "feast[redis,postgres,aws]>=0.40.1" \
+    s3fs \
+    psycopg2-binary
 
 # Copy feature definitions (entities, features, data sources)
 COPY feature_repo/ /app/feature_repo/

@@ -14,7 +14,7 @@ data:
 
     registry:
       registry_type: sql
-      path: postgresql://feast_user:changeme-feast-db-2024@postgres.mlops.svc.cluster.local:5432/feast_db
+      path: postgresql+psycopg://feast_user:changeme-feast-db-2024@postgres.mlops.svc.cluster.local:5432/feast_db
 
     offline_store:
       type: file
