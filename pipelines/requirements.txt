@@ -10,6 +10,7 @@ boto3>=1.35.0
 
 # Feast
 feast[redis,postgres,aws]>=0.40.0
+s3fs
 
 # Data Validation
 scipy>=1.14.0
