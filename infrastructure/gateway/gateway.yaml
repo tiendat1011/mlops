@@ -1,0 +1,17 @@
+# Gateway for MLOps namespace — APISIX listens on port 80
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: mlops-gateway
+  namespace: mlops
+  labels:
+    app.kubernetes.io/part-of: mlops-platform
+spec:
+  gatewayClassName: apisix
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same

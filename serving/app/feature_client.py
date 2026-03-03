@@ -1,18 +1,22 @@
 """
-Feast Online Feature Client
-Retrieves realtime features from Feast Online Store (Redis) for prediction.
+Feast Feature Client — HTTP API
+Retrieves online features from the centralized Feast Feature Server via HTTP.
+No direct Redis or Feast SDK dependency needed in the serving app.
 """
 
 import os
 import logging
-from datetime import datetime
+from typing import Optional
 
+import httpx
 import pandas as pd
-from feast import FeatureStore
 
 logger = logging.getLogger(__name__)
 
-FEAST_REPO_PATH = os.getenv("FEAST_FEATURE_STORE_YAML", "/opt/feast")
+FEAST_SERVER_URL = os.getenv(
+    "FEAST_SERVER_URL",
+    "http://feast-feature-server.mlops.svc.cluster.local:6566",
+)
 
 # Features to retrieve for prediction
 ONLINE_FEATURES = [
@@ -30,33 +34,52 @@ ONLINE_FEATURES = [
 
 
 class FeatureClient:
-    """Manages connection to Feast Online Store."""
+    """Fetches online features from Feast Feature Server via HTTP API."""
 
     def __init__(self):
-        self.fs = None
+        self._client: Optional[httpx.Client] = None
 
     def connect(self):
-        """Initialize Feast FeatureStore connection."""
-        logger.info(f"Connecting to Feast repo at {FEAST_REPO_PATH}")
-        self.fs = FeatureStore(repo_path=FEAST_REPO_PATH)
-        logger.info("✅ Feast FeatureStore connected")
+        """Initialize HTTP client to Feast Feature Server."""
+        logger.info(f"Connecting to Feast Feature Server at {FEAST_SERVER_URL}")
+        self._client = httpx.Client(base_url=FEAST_SERVER_URL, timeout=10.0)
+
+        # Health check
+        try:
+            resp = self._client.get("/health")
+            resp.raise_for_status()
+            logger.info("✅ Feast Feature Server is healthy")
+        except Exception as e:
+            logger.warning(f"⚠️ Feast health check failed: {e}")
 
     def get_online_features(self, customer_id: int) -> dict:
-        """Retrieve online features for a single customer."""
-        if self.fs is None:
-            raise RuntimeError("Feast not connected")
+        """Retrieve online features for a single customer via HTTP API."""
+        if self._client is None:
+            raise RuntimeError("Feast client not connected")
 
-        entity_rows = [{"customer_id": customer_id}]
+        payload = {
+            "features": ONLINE_FEATURES,
+            "entities": {"customer_id": [customer_id]},
+        }
 
-        features = self.fs.get_online_features(
-            features=ONLINE_FEATURES,
-            entity_rows=entity_rows,
-        ).to_dict()
+        resp = self._client.post("/get-online-features", json=payload)
+        resp.raise_for_status()
+        data = resp.json()
 
-        # Convert to single-row dict (remove list wrapping)
-        result = {k: v[0] if v else None for k, v in features.items()}
-        logger.debug(f"Online features for customer {customer_id}: {result}")
-        return result
+        # Parse response: {"metadata": {...}, "results": [{"values": [...], "statuses": [...], "event_timestamps": [...]}]}
+        results = data.get("results", [])
+        metadata = data.get("metadata", {})
+        feature_names = metadata.get("feature_names", [])
+
+        # Build a flat dict of feature_name → value
+        features = {}
+        for i, name in enumerate(feature_names):
+            if i < len(results):
+                values = results[i].get("values", [])
+                features[name] = values[0] if values else None
+
+        logger.debug(f"Online features for customer {customer_id}: {features}")
+        return features
 
     def get_feature_vector(self, customer_id: int) -> pd.DataFrame:
         """Get features as a DataFrame ready for model prediction."""

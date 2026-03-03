@@ -180,7 +180,7 @@ def trigger_retrain():
     """Trigger Airflow DAG for retraining via API."""
     import httpx
 
-    airflow_url = os.getenv("AIRFLOW_API_URL", "http://airflow-webserver.mlops.svc.cluster.local:8080")
+    airflow_url = os.getenv("AIRFLOW_API_URL", "http://airflow-api-server.mlops.svc.cluster.local:8080")
     dag_id = "training_pipeline"
 
     try:

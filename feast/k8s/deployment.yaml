@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feast-feature-server
+  namespace: mlops
+  labels:
+    app.kubernetes.io/name: feast-feature-server
+    app.kubernetes.io/component: feature-store
+    app.kubernetes.io/part-of: mlops-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: feast-feature-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feast-feature-server
+        app.kubernetes.io/component: feature-store
+    spec:
+      initContainers:
+        # Apply feature definitions to the registry before serving
+        - name: feast-apply
+          image: tiendat1011/feast-feature-server:latest 
+          command: ["feast", "apply"]
+          workingDir: /app/feature_repo
+          volumeMounts:
+            - name: feast-config
+              mountPath: /app/feature_repo/feature_store.yaml
+              subPath: feature_store.yaml
+      containers:
+        - name: feature-server
+          image: tiendat1011/feast-feature-server:latest  # Updated by CI/CD
+          command: ["feast", "serve"]
+          args:
+            - "--host=0.0.0.0"
+            - "--port=6566"
+          workingDir: /app/feature_repo
+          ports:
+            - name: http
+              containerPort: 6566
+              protocol: TCP
+          volumeMounts:
+            - name: feast-config
+              mountPath: /app/feature_repo/feature_store.yaml
+              subPath: feature_store.yaml
+          resources:
+            requests:
+              cpu: 64m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+        # Feast UI — web dashboard for exploring features/entities
+        - name: feast-ui
+          image: tiendat1011/feast-feature-server:latest
+          command: ["feast", "ui"]
+          args:
+            - "--host=0.0.0.0"
+            - "--port=8888"
+          workingDir: /app/feature_repo
+          ports:
+            - name: ui
+              containerPort: 8888
+              protocol: TCP
+          volumeMounts:
+            - name: feast-config
+              mountPath: /app/feature_repo/feature_store.yaml
+              subPath: feature_store.yaml
+          resources:
+            requests:
+              cpu: 32m
+              memory: 64Mi
+            limits:
+              cpu: 128m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: ui
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: feast-config
+          configMap:
+            name: feast-config

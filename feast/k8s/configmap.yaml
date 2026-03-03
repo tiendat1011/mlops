@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feast-config
+  namespace: mlops
+  labels:
+    app.kubernetes.io/name: feast
+    app.kubernetes.io/component: feature-store
+    app.kubernetes.io/part-of: mlops-platform
+data:
+  feature_store.yaml: |
+    project: mlops_features
+    provider: local
+
+    registry:
+      registry_type: sql
+      path: postgresql://feast_user:changeme-feast-db-2024@postgres.mlops.svc.cluster.local:5432/feast_db
+
+    offline_store:
+      type: file
+
+    online_store:
+      type: redis
+      connection_string: redis://:changeme-redis-secret-2024@redis.mlops.svc.cluster.local:6379
+
+    entity_key_serialization_version: 2

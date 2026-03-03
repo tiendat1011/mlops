@@ -51,7 +51,7 @@ spec:
             - name: CHECK_INTERVAL_SECONDS
               value: "3600"
             - name: AIRFLOW_API_URL
-              value: "http://airflow-webserver.mlops.svc.cluster.local:8080"
+              value: "http://airflow-api-server.mlops.svc.cluster.local:8080"
           resources:
             requests:
               cpu: 100m

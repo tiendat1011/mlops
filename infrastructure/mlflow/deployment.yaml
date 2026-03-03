@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: mlflow
-          image: ghcr.io/mlflow/mlflow:v2.19.0
+          image: ghcr.io/mlflow/mlflow:v3.9.0
           command:
             - /bin/bash
             - -c
@@ -43,11 +43,11 @@ spec:
                 name: mlflow-s3-secret
           resources:
             requests:
-              cpu: 250m
-              memory: 512Mi
+              cpu: 512m
+              memory: 768Mi
             limits:
-              cpu: "1"
-              memory: 1Gi
+              cpu: 1
+              memory: 1.5Gi
           readinessProbe:
             httpGet:
               path: /health

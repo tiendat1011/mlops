@@ -8,11 +8,11 @@ RUN pip install --no-cache-dir \
     pandas>=2.2.0 \
     numpy>=1.26.0 \
     scipy>=1.14.0 \
-    mlflow>=2.19.0 \
+    mlflow>=3.9.0 \
     boto3>=1.35.0 \
     httpx>=0.28.0
 
-COPY drift_detector/ /app/
+COPY main.py /app/
 
 EXPOSE 9090
 

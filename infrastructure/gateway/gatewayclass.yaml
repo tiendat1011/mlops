@@ -1,0 +1,9 @@
+# APISIX GatewayClass — references the APISIX Ingress Controller
+# This may already exist in your cluster. Apply only if not present.
+# Check: kubectl get gatewayclass
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: apisix
+spec:
+  controllerName: apisix.apache.org/gateway-controller

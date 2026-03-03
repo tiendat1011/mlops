@@ -1,0 +1,45 @@
+# APISIX Plugin Configs for Gateway API routes
+# These use APISIX-specific CRDs to attach plugins (rate-limit, auth, CORS)
+# to the standard HTTPRoute resources.
+---
+# Rate limiting + CORS for the predict API
+apiVersion: apisix.apache.org/v2
+kind: ApisixPluginConfig
+metadata:
+  name: model-serving-plugins
+  namespace: mlops
+spec:
+  plugins:
+    # Rate limiting
+    - name: limit-req
+      enable: true
+      config:
+        rate: 100
+        burst: 50
+        rejected_code: 429
+        key_type: var
+        key: remote_addr
+    # CORS
+    - name: cors
+      enable: true
+      config:
+        allow_origins: "*"
+        allow_methods: "GET, POST, OPTIONS"
+        allow_headers: "Content-Type, Authorization, apikey"
+        max_age: 3600
+---
+# IP restriction for metrics endpoint
+apiVersion: apisix.apache.org/v2
+kind: ApisixPluginConfig
+metadata:
+  name: metrics-plugins
+  namespace: mlops
+spec:
+  plugins:
+    - name: ip-restriction
+      enable: true
+      config:
+        whitelist:
+          - 10.0.0.0/8
+          - 172.16.0.0/12
+          - 192.168.0.0/16

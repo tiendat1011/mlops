@@ -26,7 +26,7 @@ spec:
             - --requirepass
             - "$(REDIS_PASSWORD)"
             - --maxmemory
-            - 256mb
+            - 64mb
             - --maxmemory-policy
             - allkeys-lru
           ports:
@@ -41,11 +41,11 @@ spec:
                   key: REDIS_PASSWORD
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 32m
+              memory: 64Mi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 128m
+              memory: 128Mi
           readinessProbe:
             exec:
               command: ["redis-cli", "ping"]
