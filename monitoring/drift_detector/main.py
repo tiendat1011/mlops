@@ -61,12 +61,13 @@ def load_reference_data() -> pd.DataFrame:
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     client = mlflow.tracking.MlflowClient()
 
-    # Get the production model's training run
-    versions = client.get_latest_versions(MODEL_NAME, stages=["Production"])
-    if not versions:
-        raise RuntimeError("No Production model found")
+    # Get the champion model's training run
+    try:
+        mv = client.get_model_version_by_alias(MODEL_NAME, "champion")
+    except Exception:
+        raise RuntimeError("No champion model found")
 
-    run = client.get_run(versions[0].run_id)
+    run = client.get_run(mv.run_id)
     # Try to load feature importances (which tells us what features were used)
     logger.info(f"Reference data from run: {run.info.run_id}")
 
@@ -143,8 +144,8 @@ def compute_drift(reference: pd.DataFrame, production: pd.DataFrame) -> dict:
         logger.warning("Evidently not installed. Using simple KS-test fallback.")
         from scipy import stats
 
-        drift_info = {"overall_drift_score": 0, "drift_detected": False, "per_feature": {}}
-        drifted = 0
+        drift_info: dict = {"overall_drift_score": 0.0, "drift_detected": False, "per_feature": {}}
+        drifted: int = 0
         for col in reference.columns:
             if col in production.columns:
                 stat, p_value = stats.ks_2samp(reference[col].dropna(), production[col].dropna())
@@ -156,8 +157,9 @@ def compute_drift(reference: pd.DataFrame, production: pd.DataFrame) -> dict:
                 if is_drifted:
                     drifted += 1
 
-        drift_info["overall_drift_score"] = drifted / max(len(reference.columns), 1)
-        drift_info["drift_detected"] = drift_info["overall_drift_score"] > DRIFT_THRESHOLD
+        score = float(drifted) / max(len(reference.columns), 1)
+        drift_info["overall_drift_score"] = score
+        drift_info["drift_detected"] = score > DRIFT_THRESHOLD
         return drift_info
 
 

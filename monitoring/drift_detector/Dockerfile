@@ -1,8 +1,11 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir \
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+RUN uv pip install --system --no-cache \
     evidently>=0.4.0 \
     prometheus-client>=0.21.0 \
     pandas>=2.2.0 \

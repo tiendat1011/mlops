@@ -1,22 +1,22 @@
-# CI Pipeline: Serving API
-# Trigger: changes to serving/ directory
+# CI Pipeline: Drift Detector
+# Trigger: changes to monitoring/ directory
 
-name: CI - Serving API
+name: CI - Drift Detector
 
 on:
   push:
     branches: [master, develop]
     paths:
-      - 'serving/**'
+      - 'monitoring/**'
   pull_request:
     branches: [master]
     paths:
-      - 'serving/**'
+      - 'monitoring/**'
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/model-serving
+  IMAGE_NAME: ${{ github.repository }}/drift-detector
 
 jobs:
   lint-and-test:
@@ -34,19 +34,24 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd serving
-          uv pip install --system -r requirements.txt
-          uv pip install --system ruff
+          uv pip install --system \
+            evidently>=0.4.0 \
+            prometheus-client>=0.21.0 \
+            pandas>=2.2.0 \
+            numpy>=1.26.0 \
+            scipy>=1.14.0 \
+            mlflow>=3.9.0 \
+            boto3>=1.35.0 \
+            httpx>=0.28.0 \
+            ruff
 
       - name: Lint with ruff
         run: |
-          cd serving
-          ruff check app/ --output-format=github --exit-zero
+          ruff check monitoring/drift_detector/ --output-format=github --exit-zero
 
-      - name: Run unit tests
+      - name: Syntax check
         run: |
-          cd serving
-          python -m pytest tests/ -v --tb=short
+          python -m py_compile monitoring/drift_detector/main.py
 
   build-and-push:
     needs: lint-and-test
@@ -68,7 +73,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./serving
+          context: ./monitoring/drift_detector
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}

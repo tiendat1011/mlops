@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: serving
-          image: model-serving:latest  # Updated by CI/CD
+          image: ghcr.io/tiendat1011/mlops/model-serving:latest
           ports:
             - name: http
               containerPort: 8000
