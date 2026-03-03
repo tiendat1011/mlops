@@ -1,3 +1,5 @@
+FROM tiendat1011/feast-feature-server:latest AS feast-repo
+
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -16,6 +18,9 @@ RUN uv pip install --system --no-cache -r requirements.txt
 
 # Copy ML pipeline code
 COPY ml/ /app/ml/
+
+# Copy Feast feature repo from the Feast image (config + feature definitions)
+COPY --from=feast-repo /app/feature_repo/ /opt/feast/
 
 # Default command (overridden by Airflow KubernetesPodOperator)
 CMD ["python", "-m", "ml.train"]
