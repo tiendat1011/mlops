@@ -3,8 +3,10 @@ name: SOPS Secret Check
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
+  workflow_dispatch:
+  
 
 jobs:
   sops-check:
@@ -24,15 +26,15 @@ jobs:
           # Tìm tất cả file kết thúc bằng .enc.yaml và kiểm tra SOPS pattern
           find . -type f -name "*.enc.yaml" | while read file; do
             if grep -q "sops" "$file" && grep -q "mac" "$file"; then
-              echo "✅ PASS: $file is properly encrypted."
+              echo "PASS: $file is properly encrypted."
             else
-              echo "❌ ERROR: $file is missing SOPS metadata. It might be plaintext!"
+              echo "ERROR: $file is missing SOPS metadata. It might be plaintext!"
               exit 1
             fi
             
             # (Tùy chọn) Thử đọc thông tin sops mà không cần private key
             if ! sops -d --show-mac "$file" &> /dev/null; then
-               echo "⚠️ WARNING: $file may be corrupted or not properly formatted."
+               echo "WARNING: $file may be corrupted or not properly formatted."
             fi
           done
           echo "All .enc.yaml files are encrypted."
