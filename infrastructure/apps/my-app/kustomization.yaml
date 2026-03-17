@@ -5,7 +5,7 @@ namespace: my-app
 generators:
   - secret-generator.yaml
 
-secretGenerator:
-  - name: my-app-secret
-    files:
-      - secret.yaml=secret.enc.yaml
+# secretGenerator:
+#   - name: my-app-secret
+#     files:
+#       - secret.yaml=secret.enc.yaml
