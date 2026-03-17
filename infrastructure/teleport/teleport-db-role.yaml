@@ -1,0 +1,15 @@
+kind: role
+version: v7
+metadata:
+  name: db-access
+spec:
+  allow:
+    db_labels:
+      env: production
+    db_names:
+      - "*"
+    db_users:
+      - "*"
+    rules:
+      - resources: [db]
+        verbs: [list, read]

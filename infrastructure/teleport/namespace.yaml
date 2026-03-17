@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-teleport
+  labels:
+    app.kubernetes.io/part-of: teleport
+    app.kubernetes.io/managed-by: kustomize

@@ -52,3 +52,4 @@ mlartifacts/
 # Temporary
 /tmp/
 *.log
+key.txt

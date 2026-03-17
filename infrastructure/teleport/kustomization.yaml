@@ -1,0 +1,19 @@
+##
+## Kustomization for Teleport Infrastructure
+##
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ns-teleport
+
+resources:
+  - namespace.yaml
+
+  # Tailscale Funnel Ingress
+  - tailscale-ingress.yaml
+
+  # Database Resources (apply sau khi Teleport đã chạy)
+  - db-mariadb.yaml
+  - db-mysql.yaml
+  - db-postgresql.yaml
+  - db-clickhouse.yaml

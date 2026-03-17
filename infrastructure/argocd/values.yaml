@@ -1,0 +1,47 @@
+metrics:
+  service:
+    enabled: false
+crds:
+  install: true
+
+configs:
+  params:
+    server.insecure: true
+
+global:
+  domain: argocd.taild817b.ts.net
+
+repoServer:
+  extraContainers:
+    - name: ksops
+      command:
+        - /var/run/argocd/argocd-cmp-server
+      image: viaductoss/ksops:v4.3.1
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+      volumeMounts:
+        - mountPath: /var/run/argocd
+          name: var-files
+        - mountPath: /home/argocd/cmp-server/plugins
+          name: plugins
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /home/argocd/cmp-server/config/plugin.yaml
+          subPath: ksops.yaml
+          name: ksops-cmp-cm
+        - name: sops-age-key
+          mountPath: /var/run/secrets/age
+          readOnly: true
+      env:
+        - name: SOPS_AGE_KEY_FILE
+          value: /var/run/secrets/age/keys.txt
+
+  volumes:
+    - name: ksops-cmp-cm
+      configMap:
+        name: ksops-cmp-cm
+    - name: sops-age-key
+      secret:
+        secretName: sops-age-key
+        optional: true

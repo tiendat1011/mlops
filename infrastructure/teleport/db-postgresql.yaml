@@ -1,0 +1,17 @@
+##
+## Teleport Database Resource - PostgreSQL
+## Protocol: postgres
+##
+apiVersion: resources.teleport.dev/v1
+kind: TeleportDatabase
+metadata:
+  name: postgresql-internal
+  namespace: ns-teleport
+spec:
+  description: "PostgreSQL - Internal Database"
+  protocol: postgres
+  uri: "postgresql.ns-db.svc.cluster.local:5432"
+  static_labels:
+    env: production
+    engine: postgresql
+    managed-by: teleport

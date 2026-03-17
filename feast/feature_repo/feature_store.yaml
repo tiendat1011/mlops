@@ -17,7 +17,7 @@ offline_store:
 # Used for low-latency feature serving (prediction time)
 online_store:
   type: redis
-  connection_string: redis://:changeme-redis-secret-2024@redis.mlops.svc.cluster.local:6379
+  connection_string: redis.mlops.svc.cluster.local:6379,password=changeme-redis-secret-2024
 
 # --- Entity key serialization ---
 entity_key_serialization_version: 3

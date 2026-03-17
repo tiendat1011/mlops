@@ -1,0 +1,124 @@
+##
+## MariaDB - Deployment + Service
+## URI trong Teleport: mariadb.ns-db.svc.cluster.local:3306
+## Đã cấu hình SSL CA + X509 cert auth từ Teleport
+##
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mariadb-secret
+  namespace: ns-db
+type: Opaque
+stringData:
+  MARIADB_ROOT_PASSWORD: "teleport-lab-2026"
+  MARIADB_DATABASE: "mydb"
+  MARIADB_USER: "teleport"
+  MARIADB_PASSWORD: "teleport-user-2026"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mariadb-config
+  namespace: ns-db
+data:
+  teleport-ssl.cnf: |
+    [mysqld]
+    ssl-ca=/etc/teleport-ca/server.cas
+    ssl-cert=/etc/teleport-ca/server.crt
+    ssl-key=/etc/teleport-ca/server.key
+    require-secure-transport=ON
+  # Init script: tạo user hỗ trợ cert auth từ Teleport (KHÔNG được có password)
+  init-teleport-users.sql: |
+    -- Xoá user teleport mặc định (do ENV tạo ra có password) để tạo lại
+    DROP USER IF EXISTS 'teleport'@'%';
+    
+    -- Tạo user teleport-admin không password, yêu cầu X509 Subject
+    CREATE USER IF NOT EXISTS 'teleport-admin'@'%' REQUIRE SUBJECT '/CN=teleport-admin';
+    GRANT ALL PRIVILEGES ON *.* TO 'teleport-admin'@'%' WITH GRANT OPTION;
+    
+    -- Tạo user teleport không password, yêu cầu X509 Subject
+    CREATE USER 'teleport'@'%' REQUIRE SUBJECT '/CN=teleport';
+    GRANT ALL PRIVILEGES ON *.* TO 'teleport'@'%' WITH GRANT OPTION;
+    
+    FLUSH PRIVILEGES;
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb
+  namespace: ns-db
+  labels:
+    app: mariadb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      containers:
+        - name: mariadb
+          image: mariadb:11
+          ports:
+            - containerPort: 3306
+              name: mysql
+          envFrom:
+            - secretRef:
+                name: mariadb-secret
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: teleport-ca
+              mountPath: /etc/teleport-ca
+              readOnly: true
+            - name: mariadb-config
+              mountPath: /etc/mysql/mariadb.conf.d/teleport-ssl.cnf
+              subPath: teleport-ssl.cnf
+              readOnly: true
+            - name: mariadb-init
+              mountPath: /docker-entrypoint-initdb.d/init-teleport-users.sql
+              subPath: init-teleport-users.sql
+              readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: 3306
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: teleport-ca
+          secret:
+            secretName: mariadb-cert
+        - name: mariadb-config
+          configMap:
+            name: mariadb-config
+        - name: mariadb-init
+          configMap:
+            name: mariadb-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: ns-db
+  labels:
+    app: mariadb
+spec:
+  selector:
+    app: mariadb
+  ports:
+    - port: 3306
+      targetPort: 3306
+      name: mysql
+  type: ClusterIP

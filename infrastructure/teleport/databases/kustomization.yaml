@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ns-db
+
+resources:
+  - namespace.yaml
+  - mariadb.yaml
+  - mysql.yaml
+  - postgresql.yaml
+  - clickhouse.yaml
+
+secretGenerator:
+  - name: mariadb-cert
+    namespace: ns-db
+    files:
+      - server.cas=cert/mariadb.cas
+      - server.crt=cert/mariadb.crt
+      - server.key=cert/mariadb.key
+  - name: mysql-cert
+    namespace: ns-db
+    files:
+      # Nếu dùng chung cert với mariadb
+      - server.cas=cert/mariadb.cas
+      - server.crt=cert/mariadb.crt
+      - server.key=cert/mariadb.key
+  - name: postgresql-cert
+    namespace: ns-db
+    files:
+      - server.cas=cert/postgres.cas
+      - server.crt=cert/postgres.crt
+      - server.key=cert/postgres.key
+  - name: clickhouse-cert
+    namespace: ns-db
+    files:
+      - server.cas=cert/clickhouse.cas
+      - server.crt=cert/clickhouse.crt
+      - server.key=cert/clickhouse.key

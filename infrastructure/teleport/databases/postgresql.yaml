@@ -1,0 +1,136 @@
+##
+## PostgreSQL - Deployment + Service
+## URI trong Teleport: postgresql.ns-db.svc.cluster.local:5432
+## Đã cấu hình SSL CA từ Teleport để hỗ trợ mTLS
+##
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgresql-secret
+  namespace: ns-db
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: "teleport-lab-2026"
+  POSTGRES_DB: "mydb"
+  POSTGRES_USER: "postgres"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-config
+  namespace: ns-db
+data:
+  # Script khởi tạo: cấu hình SSL + tạo user HBA
+  setup-ssl.sh: |
+    #!/bin/bash
+    set -e
+    # Copy CA cert, server cert, server key (PostgreSQL yêu cầu owner postgres)
+    cp /etc/teleport-ca/server.cas /var/lib/postgresql/data/teleport-ca.crt
+    cp /etc/teleport-ca/server.crt /var/lib/postgresql/data/server.crt
+    cp /etc/teleport-ca/server.key /var/lib/postgresql/data/server.key
+    chown postgres:postgres /var/lib/postgresql/data/teleport-ca.crt /var/lib/postgresql/data/server.crt /var/lib/postgresql/data/server.key
+    chmod 600 /var/lib/postgresql/data/teleport-ca.crt /var/lib/postgresql/data/server.crt /var/lib/postgresql/data/server.key
+    
+    # Cấu hình ssl_ca_file
+    echo "ssl = on" >> /var/lib/postgresql/data/postgresql.conf
+    echo "ssl_ca_file = '/var/lib/postgresql/data/teleport-ca.crt'" >> /var/lib/postgresql/data/postgresql.conf
+    echo "ssl_cert_file = '/var/lib/postgresql/data/server.crt'" >> /var/lib/postgresql/data/postgresql.conf
+    echo "ssl_key_file = '/var/lib/postgresql/data/server.key'" >> /var/lib/postgresql/data/postgresql.conf
+    
+    # Thêm map cert CN -> DB User
+    # Default Teleport DB CN is username (e.g. teleport-admin)
+    # mapping name is 'teleport'
+    # allow any cert subject to map to any requested db username 
+    echo "teleport /^(.*)$ \1" > /var/lib/postgresql/data/pg_ident.conf
+    chown postgres:postgres /var/lib/postgresql/data/pg_ident.conf
+    
+    # Thêm HBA rule cho cert auth (trước rule default)
+    # hostssl all all all cert clientcert=verify-ca
+    sed -i '1i hostssl all all 0.0.0.0/0 cert map=teleport clientcert=verify-full' /var/lib/postgresql/data/pg_hba.conf
+    
+    # Reload config
+    pg_ctl reload -D /var/lib/postgresql/data || true
+    
+    # Create Teleport dedicated users that can be assumed via cert
+    echo "Creating Teleport users..."
+    psql -U postgres -d postgres -c "CREATE USER \"teleport-admin\" WITH SUPERUSER;" || echo "User already exists"
+    psql -U postgres -d postgres -c "CREATE USER \"teleport\";" || echo "User already exists"
+    psql -U postgres -d mydb -c "GRANT ALL PRIVILEGES ON DATABASE mydb TO \"teleport\";" || echo "Grant failed"
+    pg_ctl reload -D /var/lib/postgresql/data || true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql
+  namespace: ns-db
+  labels:
+    app: postgresql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      containers:
+        - name: postgresql
+          image: postgres:17
+          ports:
+            - containerPort: 5432
+              name: postgres
+          envFrom:
+            - secretRef:
+                name: postgresql-secret
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: teleport-ca
+              mountPath: /etc/teleport-ca
+              readOnly: true
+            - name: pg-init
+              mountPath: /docker-entrypoint-initdb.d/setup-ssl.sh
+              subPath: setup-ssl.sh
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: teleport-ca
+          secret:
+            secretName: postgresql-cert
+        - name: pg-init
+          configMap:
+            name: postgresql-config
+            defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: ns-db
+  labels:
+    app: postgresql
+spec:
+  selector:
+    app: postgresql
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  type: ClusterIP

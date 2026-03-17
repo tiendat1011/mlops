@@ -1,0 +1,17 @@
+##
+## Teleport Database Resource - MySQL
+## Protocol: mysql
+##
+apiVersion: resources.teleport.dev/v1
+kind: TeleportDatabase
+metadata:
+  name: mysql-internal
+  namespace: ns-teleport
+spec:
+  description: "MySQL - Internal Database"
+  protocol: mysql
+  uri: "mysql.ns-db.svc.cluster.local:3306"
+  static_labels:
+    env: production
+    engine: mysql
+    managed-by: teleport

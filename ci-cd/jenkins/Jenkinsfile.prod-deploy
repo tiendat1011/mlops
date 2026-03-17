@@ -1,0 +1,266 @@
+pipeline {
+    agent any
+
+    environment {
+        GITLAB_PROJECT       = 'https://gitlab.dxfuturetech.com.vn/datdang/testing-approval-proj.git'
+        DEPLOY_ENV           = 'prod'
+        APPROVER_EMAIL       = 'tuan.nguyen@dxfuturetech.com.vn'
+        JENKINS_URL_EXTERNAL = 'https://jenkins.dxfuturetech.com.vn'
+        GIT_BRANCH           = 'prod'
+    }
+
+    triggers {
+        GenericTrigger(
+            genericVariables: [
+                [key: 'ref', value: '$.ref'],
+                [key: 'project', value: '$.project.path_with_namespace'],
+                [key: 'user', value: '$.user_name'],
+                [key: 'user_email', value: '$.user_email'],
+                [key: 'repo_name', value: '$.project.name'],
+                [key: 'commit_message', value: '$.commits[0].message'],
+                [key: 'commit_timestamp', value: '$.commits[0].timestamp']
+            ],
+            causeString: 'Triggered by GitLab push to $ref',
+            token: 'lfFpnLwvrS9oyFvbdtjnlpjL',
+            printContributedVariables: true,
+            printPostContent: true,
+            regexpFilterText: '$ref',
+            regexpFilterExpression: 'refs/heads/prod'
+        )
+    }
+
+    stages {
+
+        stage('Cleanup Workspace') {
+            steps {
+                sh "rm -rf source || true"
+            }
+        }
+
+        stage('Checkout Source') {
+            steps {
+                script {
+                    sh "mkdir -p source"
+                    dir('source') {
+                        git branch: "${GIT_BRANCH}",
+                            credentialsId: 'gitlab-secret',
+                            url: "${GITLAB_PROJECT}"
+                    }
+
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo "Building application..."
+                sh 'echo "Running build process..."'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo "Running tests..."
+                sh 'echo "Running unit tests..."'
+            }
+            post {
+                always {
+                    echo "Test stage completed"
+                }
+            }
+        }
+
+        stage('Approval via Email') {
+            steps {
+                script {
+                    // Lay thong tin git tu source directory
+                    dir('source') {
+                        env.GIT_SHORT_COMMIT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                        env.GIT_AUTHOR       = sh(script: 'git log -1 --format="%an"', returnStdout: true).trim()
+                        env.GIT_AUTHOR_EMAIL = sh(script: 'git log -1 --format="%ae"', returnStdout: true).trim()
+                        env.GIT_MSG          = sh(script: 'git log -1 --format="%s"', returnStdout: true).trim()
+                        env.GIT_DATE         = sh(script: 'git log -1 --format="%ci"', returnStdout: true).trim()
+                    }
+
+                    // Tao 2 webhook URL tam thoi
+                    def approveHook = registerWebhook()
+                    def rejectHook  = registerWebhook()
+
+                    // DEBUG: Log raw URLs truoc khi thay
+                    def rawApproveUrl = approveHook.getURL()
+                    def rawRejectUrl  = rejectHook.getURL()
+                    echo "=== DEBUG WEBHOOK ==="
+                    echo "JENKINS_URL (internal):  ${env.JENKINS_URL}"
+                    echo "JENKINS_URL_EXTERNAL:    ${JENKINS_URL_EXTERNAL}"
+                    echo "Raw approve URL:         ${rawApproveUrl}"
+                    echo "Raw reject  URL:         ${rawRejectUrl}"
+
+                    // Fix "Oops" error: thay Jenkins internal URL bang external URL
+                    def approveUrl = rawApproveUrl.replaceFirst(env.JENKINS_URL ?: '', "${JENKINS_URL_EXTERNAL}/")
+                    def rejectUrl  = rawRejectUrl.replaceFirst(env.JENKINS_URL ?: '', "${JENKINS_URL_EXTERNAL}/")
+
+                    echo "Final approve URL:       ${approveUrl}"
+                    echo "Final reject  URL:       ${rejectUrl}"
+                    echo "======================"
+
+                    // Gui email voi 2 nut approve/reject
+                    emailext(
+                        to: "${APPROVER_EMAIL}",
+                        subject: "[APPROVAL] ${env.repo_name ?: 'Unknown'} - Deploy to ${DEPLOY_ENV} - Build #${BUILD_ID}",
+                        mimeType: 'text/html',
+                        body: """
+                        <html>
+                        <body style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                            <div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 30px; border-radius: 10px 10px 0 0; color: white;">
+                                <h2 style="margin:0;">Deployment Approval Required</h2>
+                                <p style="margin:5px 0 0; opacity:0.85;">Click to approve or reject - no login needed</p>
+                            </div>
+
+                            <div style="background: #f8f9fa; padding: 25px; border: 1px solid #e9ecef;">
+                                <table style="width:100%; border-collapse:collapse;">
+                                    <tr>
+                                        <td style="padding:8px 0; font-weight:bold; color:#495057;">Project:</td>
+                                        <td style="padding:8px 0;">${env.repo_name ?: 'Unknown'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px 0; font-weight:bold; color:#495057;">Branch:</td>
+                                        <td style="padding:8px 0;"><code>prod</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px 0; font-weight:bold; color:#495057;">Environment:</td>
+                                        <td style="padding:8px 0;">${DEPLOY_ENV}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px 0; font-weight:bold; color:#495057;">Build:</td>
+                                        <td style="padding:8px 0;">#${BUILD_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px 0; font-weight:bold; color:#495057;">Pushed by:</td>
+                                        <td style="padding:8px 0;">${env.user ?: env.GIT_AUTHOR ?: 'Unknown'} &lt;${env.user_email ?: env.GIT_AUTHOR_EMAIL ?: ''}&gt;</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px 0; font-weight:bold; color:#495057;">Commit:</td>
+                                        <td style="padding:8px 0;">${env.GIT_MSG ?: env.commit_message ?: 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px 0; font-weight:bold; color:#495057;">Date:</td>
+                                        <td style="padding:8px 0;">${env.GIT_DATE ?: env.commit_timestamp ?: 'N/A'}</td>
+                                    </tr>
+                                </table>
+
+                                <hr style="border:none; border-top:1px solid #dee2e6; margin:20px 0;">
+
+                                <div style="text-align:center; margin:25px 0;">
+                                    <a href="${approveUrl}"
+                                       style="background:#28a745; color:white; padding:14px 35px;
+                                              text-decoration:none; border-radius:6px; font-weight:bold;
+                                              font-size:16px; display:inline-block; margin:8px;">
+                                        APPROVE
+                                    </a>
+
+                                    <a href="${rejectUrl}"
+                                       style="background:#dc3545; color:white; padding:14px 35px;
+                                              text-decoration:none; border-radius:6px; font-weight:bold;
+                                              font-size:16px; display:inline-block; margin:8px;">
+                                        REJECT
+                                    </a>
+                                </div>
+
+                                <p style="color:#adb5bd; font-size:12px; text-align:center;">
+                                    Auto-expires in 4 hours if no action is taken.
+                                </p>
+                            </div>
+                        </body>
+                        </html>
+                        """
+                    )
+
+                    echo "Approval email sent to ${APPROVER_EMAIL}"
+                    echo "Waiting for approval (timeout: 4 hours)..."
+
+                    // Cho response tu 1 trong 2 webhook (approve hoac reject)
+                    def approved = false
+
+                    try {
+                        timeout(time: 4, unit: 'HOURS') {
+                            parallel(
+                                'wait-approve': {
+                                    waitForWebhook(approveHook)
+                                    approved = true
+                                    echo "Deployment APPROVED"
+                                },
+                                'wait-reject': {
+                                    waitForWebhook(rejectHook)
+                                    echo "Deployment REJECTED"
+                                },
+                                failFast: true
+                            )
+                        }
+                    } catch (err) {
+                        if (!approved) {
+                            emailext(
+                                to: "${APPROVER_EMAIL}",
+                                subject: "[NOT APPROVED] ${env.repo_name ?: 'Unknown'} - Build #${BUILD_NUMBER}",
+                                mimeType: 'text/html',
+                                body: """
+                                <html><body style="font-family:'Segoe UI',Arial; padding:20px;">
+                                    <h2 style="color:#dc3545;">Deployment Not Approved</h2>
+                                    <p><strong>Build:</strong> #${BUILD_NUMBER}</p>
+                                    <p>The deployment was rejected or timed out after 4 hours.</p>
+                                </body></html>
+                                """
+                            )
+                            error("Deployment was rejected or timed out")
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            steps {
+                echo "Deploying to ${DEPLOY_ENV}..."
+                sh '''
+                    echo "Deploying application..."
+                    # === CUSTOMIZE ===
+                    # kubectl set image deployment/app app=image:${BUILD_NUMBER} -n production
+                    # argocd app sync your-app --grpc-web
+                '''
+            }
+        }
+
+        stage('Notify') {
+            steps {
+                script {
+                    emailext(
+                        to: "${APPROVER_EMAIL}",
+                        subject: "[DEPLOYED] ${env.repo_name ?: 'Unknown'} - Build #${BUILD_NUMBER} - ${DEPLOY_ENV}",
+                        mimeType: 'text/html',
+                        body: """
+                        <html><body style="font-family: 'Segoe UI', Arial; padding: 20px;">
+                            <div style="background: #28a745; color: white; padding: 20px; border-radius: 10px;">
+                                <h2 style="margin:0;">Deployment Successful</h2>
+                            </div>
+                            <div style="padding: 15px 0;">
+                                <p><strong>Project:</strong> ${GITLAB_PROJECT}</p>
+                                <p><strong>Environment:</strong> ${DEPLOY_ENV}</p>
+                                <p><strong>Build:</strong> #${BUILD_NUMBER}</p>
+                            </div>
+                        </body></html>
+                        """
+                    )
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            emailext(
+                to: "${APPROVER_EMAIL}",
+                subject: "[FAILED] ${env.repo_name ?: 'Unknown'} - Build #${BUILD_NUMBER}",
+                body: "Build failed. Check logs: ${BUILD_URL}console"
+            )
+        }
+    }
+}

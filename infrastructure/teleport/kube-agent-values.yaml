@@ -1,0 +1,60 @@
+##
+## Teleport Kube Agent - Database Service
+## Chart: teleport-kube-agent (v18.x)
+## Deploy riêng biệt để chạy Database Service (db_service)
+## kết nối tới các database nội bộ qua Teleport Proxy
+##
+
+# Role: chỉ chạy Database Service
+roles: db
+
+# Địa chỉ Teleport Proxy — dùng publicAddr (CoreDNS đã resolve qua hosts plugin)
+proxyAddr: teleport-funnel.taild817b.ts.net:443
+
+# Skip TLS verify vì Teleport dùng self-signed cert
+insecureSkipProxyTLSVerify: true
+
+# Join token - sẽ được tạo bằng tctl
+authToken: f677498b5e7ec041320cf1a679032735
+
+# Không dùng Enterprise
+enterprise: false
+
+# Danh sách database cần kết nối
+# tls.mode: insecure = không verify cert DB (self-signed / internal)
+databases:
+  - name: mariadb-internal
+    uri: "mariadb.ns-db.svc.cluster.local:3306"
+    protocol: mysql
+    tls:
+      mode: insecure
+    static_labels:
+      env: production
+      engine: mariadb
+
+  - name: mysql-internal
+    uri: "mysql.ns-db.svc.cluster.local:3306"
+    protocol: mysql
+    tls:
+      mode: insecure
+    static_labels:
+      env: production
+      engine: mysql
+
+  - name: postgresql-internal
+    uri: "postgresql.ns-db.svc.cluster.local:5432"
+    protocol: postgres
+    tls:
+      mode: insecure
+    static_labels:
+      env: production
+      engine: postgresql
+
+  - name: clickhouse-internal
+    uri: "clickhouse.ns-db.svc.cluster.local:9440"
+    protocol: clickhouse
+    tls:
+      mode: verify-full
+    static_labels:
+      env: production
+      engine: clickhouse

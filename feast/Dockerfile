@@ -8,6 +8,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install Feast with all backends + s3fs for MinIO access
 RUN uv pip install --system --no-cache \
     "feast[redis,postgres,aws]>=0.40.1" \
+    "protobuf>=5.26.0,<6" \
     s3fs \
     psycopg2-binary
 

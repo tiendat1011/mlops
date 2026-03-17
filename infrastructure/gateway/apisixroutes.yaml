@@ -1,0 +1,128 @@
+# ApisixRoute: Model Serving API
+apiVersion: apisix.apache.org/v2
+kind: ApisixRoute
+metadata:
+  name: model-serving-route
+  namespace: mlops
+spec:
+  ingressClassName: apisix
+  http:
+    - name: predict-api
+      match:
+        paths:
+          - /api/v1/predict*
+          - /api/v1/health*
+          - /api/v1/metrics*
+      backends:
+        - serviceName: model-serving
+          servicePort: 8000
+---
+# ApisixRoute: MLflow UI + API
+apiVersion: apisix.apache.org/v2
+kind: ApisixRoute
+metadata:
+  name: mlflow-route
+  namespace: mlops
+spec:
+  ingressClassName: apisix
+  http:
+    - name: mlflow-ui
+      match:
+        paths:
+          - /mlflow*
+      backends:
+        - serviceName: mlflow
+          servicePort: 5000
+      plugins:
+        - name: proxy-rewrite
+          enable: true
+          config:
+            regex_uri:
+              - ^/mlflow(/|$)(.*)
+              - /$2
+---
+# ApisixRoute: Airflow Web Server
+apiVersion: apisix.apache.org/v2
+kind: ApisixRoute
+metadata:
+  name: airflow-route
+  namespace: mlops
+spec:
+  ingressClassName: apisix
+  http:
+    - name: airflow-ui
+      match:
+        paths:
+          - /airflow*
+      backends:
+        - serviceName: airflow-api-server
+          servicePort: 8080
+      plugins:
+        - name: proxy-rewrite
+          enable: true
+          config:
+            regex_uri:
+              - ^/airflow(/|$)(.*)
+              - /$2
+---
+# ApisixRoute: Feast Feature Server
+apiVersion: apisix.apache.org/v2
+kind: ApisixRoute
+metadata:
+  name: feast-route
+  namespace: mlops
+spec:
+  ingressClassName: apisix
+  http:
+    - name: feast-ui
+      match:
+        paths:
+          - /feast*
+      backends:
+        - serviceName: feast-feature-server
+          servicePort: 8888
+      plugins:
+        - name: proxy-rewrite
+          enable: true
+          config:
+            regex_uri:
+              - ^/feast(/|$)(.*)
+              - /$2
+    - name: feast-api
+      match:
+        paths:
+          - /feast-api*
+      backends:
+        - serviceName: feast-feature-server
+          servicePort: 6566
+      plugins:
+        - name: proxy-rewrite
+          enable: true
+          config:
+            regex_uri:
+              - ^/feast-api(/|$)(.*)
+              - /$2
+---
+# ApisixRoute: MinIO Console
+apiVersion: apisix.apache.org/v2
+kind: ApisixRoute
+metadata:
+  name: minio-console-route
+  namespace: mlops
+spec:
+  ingressClassName: apisix
+  http:
+    - name: minio-console
+      match:
+        paths:
+          - /minio*
+      backends:
+        - serviceName: minio
+          servicePort: 9001
+      plugins:
+        - name: proxy-rewrite
+          enable: true
+          config:
+            regex_uri:
+              - ^/minio(/|$)(.*)
+              - /$2

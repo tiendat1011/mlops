@@ -1,0 +1,143 @@
+##
+## ClickHouse - Deployment + Service
+## URI trong Teleport: clickhouse.ns-db.svc.cluster.local:9000
+##
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse
+  namespace: ns-db
+  labels:
+    app: clickhouse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+    spec:
+      containers:
+        - name: clickhouse
+          image: clickhouse/clickhouse-server:24
+          ports:
+            - containerPort: 9000
+              name: native
+            - containerPort: 8123
+              name: http
+          env:
+            - name: CLICKHOUSE_DB
+              value: "default"
+            - name: CLICKHOUSE_USER
+              value: "default"
+            - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+              value: "1"
+            - name: CLICKHOUSE_PASSWORD
+              value: "teleport-lab-2026"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/clickhouse
+            - name: teleport-tls
+              mountPath: /etc/teleport-ca
+              readOnly: true
+            - name: clickhouse-config
+              mountPath: /etc/clickhouse-server/config.d/ssl.xml
+              subPath: ssl.xml
+            - name: clickhouse-config
+              mountPath: /etc/clickhouse-server/users.d/teleport.xml
+              subPath: teleport-user.xml
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 8123
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: teleport-tls
+          secret:
+            secretName: clickhouse-cert
+        - name: clickhouse-config
+          configMap:
+            name: clickhouse-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-config
+  namespace: ns-db
+data:
+  ssl.xml: |
+    <clickhouse>
+        <!-- Listen on secure ports -->
+        <tcp_port_secure>9440</tcp_port_secure>
+        <https_port>8443</https_port>
+
+        <openSSL>
+            <server>
+                <certificateFile>/etc/teleport-ca/server.crt</certificateFile>
+                <privateKeyFile>/etc/teleport-ca/server.key</privateKeyFile>
+                <!-- caConfig is used to verify client certificates -->
+                <caConfig>/etc/teleport-ca/server.cas</caConfig>
+                <verificationMode>strict</verificationMode>
+                <cacheSessions>true</cacheSessions>
+                <disableProtocols>sslv2,sslv3</disableProtocols>
+                <preferServerCiphers>true</preferServerCiphers>
+            </server>
+        </openSSL>
+    </clickhouse>
+
+  teleport-user.xml: |
+    <clickhouse>
+        <users>
+            <teleport>
+                <!-- Certificate authentication (passwordless) -->
+                <!-- The CN must match the user name 'teleport' -->
+                <ssl_certificates>
+                    <common_name>teleport</common_name>
+                </ssl_certificates>
+                <profile>default</profile>
+                <networks>
+                    <ip>::/0</ip>
+                </networks>
+                <!-- Give full access -->
+                <access_management>1</access_management>
+            </teleport>
+        </users>
+    </clickhouse>
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+  namespace: ns-db
+  labels:
+    app: clickhouse
+spec:
+  selector:
+    app: clickhouse
+  ports:
+    - port: 9000
+      targetPort: 9000
+      name: native
+    - port: 8123
+      targetPort: 8123
+      name: http
+    - port: 9440
+      targetPort: 9440
+      name: secure-native
+    - port: 8443
+      targetPort: 8443
+      name: secure-http
+  type: ClusterIP

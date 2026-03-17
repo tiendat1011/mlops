@@ -1,0 +1,17 @@
+##
+## Teleport Database Resource - MariaDB
+## Protocol: mysql (MariaDB sử dụng MySQL wire protocol)
+##
+apiVersion: resources.teleport.dev/v1
+kind: TeleportDatabase
+metadata:
+  name: mariadb-internal
+  namespace: ns-teleport
+spec:
+  description: "MariaDB - Internal Database"
+  protocol: mysql
+  uri: "mariadb.ns-db.svc.cluster.local:3306"
+  static_labels:
+    env: production
+    engine: mariadb
+    managed-by: teleport

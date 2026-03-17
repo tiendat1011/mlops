@@ -1,0 +1,38 @@
+name: SOPS Secret Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  sops-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Sops
+        uses: mdgreenwald/mozilla-sops-action@v1.5.0
+        with:
+          version: '3.8.1'
+
+      - name: Check encrypted files
+        run: |
+          echo "Starting scan for .enc.yaml files..."
+          # Tìm tất cả file kết thúc bằng .enc.yaml và kiểm tra SOPS pattern
+          find . -type f -name "*.enc.yaml" | while read file; do
+            if grep -q "sops" "$file" && grep -q "mac" "$file"; then
+              echo "✅ PASS: $file is properly encrypted."
+            else
+              echo "❌ ERROR: $file is missing SOPS metadata. It might be plaintext!"
+              exit 1
+            fi
+            
+            # (Tùy chọn) Thử đọc thông tin sops mà không cần private key
+            if ! sops -d --show-mac "$file" &> /dev/null; then
+               echo "⚠️ WARNING: $file may be corrupted or not properly formatted."
+            fi
+          done
+          echo "All .enc.yaml files are encrypted."

@@ -1,0 +1,19 @@
+# GatewayProxy — binds the Gateway to the APISIX data plane
+# Without this, the APISIX Ingress Controller logs "no GatewayProxy configs provided"
+# and ignores all Gateway + HTTPRoute resources.
+apiVersion: apisix.apache.org/v1alpha1
+kind: GatewayProxy
+metadata:
+  name: mlops-gateway-proxy
+  namespace: ingress-apisix
+spec:
+  provider:
+    type: ControlPlane
+    controlPlane:
+      auth:
+        type: AdminKey
+        adminKey:
+          value: edd1c9f034335f136f87ad84b625c8f1
+      endpoints:
+        - "http://apisix-admin.ingress-apisix.svc.cluster.local:9180"
+  publishService: ingress-apisix/apisix-gateway

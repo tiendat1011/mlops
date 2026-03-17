@@ -1,0 +1,21 @@
+##
+## Teleport Database Resource - ClickHouse
+## Protocol: clickhouse (Native TCP, port 9000)
+##
+## LƯU Ý:
+## - Nếu dùng cổng Native (9000) → protocol: clickhouse
+## - Nếu dùng cổng HTTP (8123)  → protocol: clickhouse-http
+##
+apiVersion: resources.teleport.dev/v1
+kind: TeleportDatabase
+metadata:
+  name: clickhouse-internal
+  namespace: ns-teleport
+spec:
+  description: "ClickHouse - Internal Database (Native Protocol)"
+  protocol: clickhouse
+  uri: "clickhouse.ns-db.svc.cluster.local:9000"
+  static_labels:
+    env: production
+    engine: clickhouse
+    managed-by: teleport

@@ -1,0 +1,49 @@
+kind: db
+version: v3
+metadata:
+  name: mariadb-internal
+  description: "MariaDB - Internal Database"
+  labels:
+    env: production
+    engine: mariadb
+spec:
+  protocol: mysql
+  uri: "mariadb.ns-db.svc.cluster.local:3306"
+---
+kind: db
+version: v3
+metadata:
+  name: mysql-internal
+  description: "MySQL - Internal Database"
+  labels:
+    env: production
+    engine: mysql
+spec:
+  protocol: mysql
+  uri: "mysql.ns-db.svc.cluster.local:3306"
+---
+kind: db
+version: v3
+metadata:
+  name: postgresql-internal
+  description: "PostgreSQL - Internal Database"
+  labels:
+    env: production
+    engine: postgresql
+spec:
+  protocol: postgres
+  uri: "postgresql.ns-db.svc.cluster.local:5432"
+---
+kind: db
+version: v3
+metadata:
+  name: clickhouse-internal
+  description: "ClickHouse - Internal Database (Native Protocol)"
+  labels:
+    env: production
+    engine: clickhouse
+spec:
+  protocol: clickhouse
+  uri: "clickhouse.ns-db.svc.cluster.local:9440"
+  tls:
+    mode: verify-full

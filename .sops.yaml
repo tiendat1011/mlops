@@ -1,0 +1,6 @@
+creation_rules:
+  - path_regex: .*\.yaml$
+    # Thay thế public key dưới đây bằng Public Key thực tế của bạn
+    # Ví dụ: age1y8xl...
+    age: "age173tf49eq2m2zm8w88tk65529yqnlqfs2wgm7nv9jj2yhst397dfszu8try"
+    encrypted_regex: '^(data|stringData)$'

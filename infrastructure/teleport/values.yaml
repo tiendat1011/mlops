@@ -1,0 +1,107 @@
+##
+## Teleport Cluster Helm Chart - values.yaml
+## Chart: teleport-cluster (v18.x)
+## Docs: https://goteleport.com/docs/reference/helm-reference/teleport-cluster/
+##
+## Triển khai Teleport trên Private K8s Cluster
+## - Không có IP Public, sử dụng Tailscale Funnel
+## - Multiplex mode: gộp toàn bộ traffic vào port 443
+## - Service type: ClusterIP (không cần LoadBalancer)
+##
+
+# ============================================================
+# 1. CLUSTER CONFIGURATION
+# ============================================================
+
+# Tên cluster = Tailscale Funnel domain
+clusterName: teleport-funnel.taild817b.ts.net
+
+# Public address mà client sẽ kết nối tới (qua Tailscale Funnel)
+publicAddr:
+  - "teleport-funnel.taild817b.ts.net:443"
+
+# Multiplex mode: gộp tất cả protocols (SSH, Web, DB, K8s) vào port 443
+proxyListenerMode: multiplex
+
+# ============================================================
+# 2. AUTHENTICATION
+# ============================================================
+
+authentication:
+  # Sử dụng local auth (username/password + OTP)
+  type: local
+  localAuth: true
+  # Bật second factor với TOTP (Google Authenticator, Authy, etc.)
+  secondFactor: "otp"
+
+# ============================================================
+# 3. SERVICE CONFIGURATION
+# ============================================================
+
+# ClusterIP vì traffic đi qua Tailscale Funnel, không cần LoadBalancer
+service:
+  type: ClusterIP
+
+# ============================================================
+# 4. CHART MODE
+# ============================================================
+
+# Standalone mode: Auth + Proxy chạy chung 1 pod
+# Phù hợp cho lab/small production, dùng local storage
+chartMode: standalone
+
+# ============================================================
+# 5. TLS / ACME
+# ============================================================
+
+# Tắt ACME (Let's Encrypt) vì Tailscale Funnel lo phần SSL từ internet
+# Teleport sẽ dùng self-signed cert nội bộ
+acme: false
+
+# ============================================================
+# 6. PROXY CONFIGURATION
+# ============================================================
+
+proxy:
+  teleportConfig:
+    proxy_service:
+      trust_x_forwarded_for: true
+
+# ============================================================
+# 7. SESSION RECORDING
+# ============================================================
+
+# Ghi lại session tại proxy (phù hợp khi node ở mạng khác)
+sessionRecording: "proxy"
+
+# ============================================================
+# 8. PERSISTENCE
+# ============================================================
+
+persistence:
+  enabled: true
+  # StorageClass - điều chỉnh theo cluster của bạn
+  # storageClassName: "local-path"
+  volumeSize: 10Gi
+
+# ============================================================
+# 9. RESOURCES
+# ============================================================
+
+resources:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+
+# ============================================================
+# 10. LOGGING
+# ============================================================
+
+log:
+  level: INFO
+  output: stderr
+  format: json
+  extraFields: ["timestamp", "level", "component", "caller"]

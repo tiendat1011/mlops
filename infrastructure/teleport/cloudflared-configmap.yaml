@@ -1,0 +1,47 @@
+##
+## Cloudflared ConfigMap
+## Cấu hình ingress routing cho Cloudflare Tunnel → Teleport
+##
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared-config
+  namespace: ns-teleport
+  labels:
+    app.kubernetes.io/name: cloudflared
+    app.kubernetes.io/part-of: teleport
+data:
+  config.yaml: |
+    # ============================================================
+    # Cloudflare Tunnel Configuration
+    # ============================================================
+
+    # Tunnel ID - thay thế bằng ID thực sau khi tạo tunnel
+    # Lấy từ: cloudflared tunnel list
+    tunnel: 063a0700-0236-47b8-b700-34a288ad14ee
+
+    # File credentials - mount từ Secret
+    credentials-file: /etc/cloudflared/creds/credentials.json
+
+    # Metrics endpoint (optional, để monitor)
+    metrics: 0.0.0.0:2000
+
+    # Ingress rules
+    ingress:
+      # Rule 1: Map domain teleport → service nội bộ
+      - hostname: teleport.dxfuturetech.com.vn
+        service: https://teleport.ns-teleport.svc.cluster.local:443
+        originRequest:
+          # QUAN TRỌNG: Teleport dùng self-signed cert nội bộ
+          # → bỏ qua verify TLS giữa cloudflared và Teleport
+          noTLSVerify: true
+
+          # QUAN TRỌNG: Teleport Proxy sử dụng gRPC/HTTP2
+          # → cần bật http2Origin để tunnel hoạt động đúng
+          http2Origin: true
+
+          # Timeout cho kết nối tới origin
+          connectTimeout: 30s
+
+      # Catch-all rule (bắt buộc phải có)
+      - service: http_status:404

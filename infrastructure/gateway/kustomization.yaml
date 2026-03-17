@@ -4,7 +4,5 @@ kind: Kustomization
 namespace: mlops
 
 resources:
-  - gatewayclass.yaml
-  - gateway.yaml
-  - httproutes.yaml
+  - apisixroutes.yaml
   - apisix-plugins.yaml

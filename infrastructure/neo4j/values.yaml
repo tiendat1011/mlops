@@ -1,0 +1,24 @@
+neo4j:
+  name: neo4j-cluster
+  minimumClusterSize: 1
+  resources:
+    cpu: "1"
+    memory: "4Gi"
+  password: "TcbsR8O4jPoAmZwiRBhehFVK"
+  edition: "enterprise"
+  acceptLicenseAgreement: "yes"
+  operations:
+    enableServer: true
+    image: "neo4j/helm-charts-operations:2025.06.2"
+volumes:
+  data:
+    mode: "defaultStorageClass"
+    defaultStorageClass:
+     requests:
+        storage: 10Gi
+services:
+  neo4j:
+    cleanup:
+      enabled: false
+    spec:
+      type: ClusterIP
