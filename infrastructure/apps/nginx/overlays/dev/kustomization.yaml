@@ -4,3 +4,6 @@ namespace: dev
 
 generators:
   - secret-generator.yaml
+
+resources:
+  - ../../base
